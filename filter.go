@@ -93,7 +93,7 @@ func (filter *Filter) Replace(text string, repl rune) string {
 	return string(runes)
 }
 
-// Filter 直接过滤掉字符串中的敏感词
+// Filter 过滤敏感词
 func (filter *Filter) Filter(text string) string {
 	var (
 		parent      = filter.black.Root
@@ -308,6 +308,11 @@ func (filter *Filter) FindSuffix(runes []rune) (bool, string) {
 // RemoveNoise 去除空格等噪音
 func (filter *Filter) RemoveNoise(text string) string {
 	return filter.noise.ReplaceAllString(text, "")
+}
+
+// SetWhiteFlag 设置白名单启用状态
+func (filter *Filter) SetWhiteFlag(isUsing bool) {
+	filter.checkWhite = isUsing
 }
 
 // 字符串翻转
