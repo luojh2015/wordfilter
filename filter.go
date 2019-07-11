@@ -48,9 +48,8 @@ func (filter *Filter) AddWord(typ WordType, words ...string) {
 		filter.black.Add(words...)
 	case WordTypeWhitePre:
 		for i := range words {
-			words[i] = filter.overturnString(words[i])
+			filter.whitePrefix.Add(filter.overturnString(words[i]))
 		}
-		filter.whitePrefix.Add(words...)
 	case WordTypeWhiteSuf:
 		filter.whiteSuffix.Add(words...)
 	}
