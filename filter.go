@@ -320,7 +320,7 @@ func (filter *Filter) overturnString(text string) string {
 	l := len(key)
 	for j := 0; j < l/2; j++ {
 		// 倒序存前缀
-		key[j], key[l-j] = key[l-j], key[l]
+		key[j], key[l-1-j] = key[l-1-j], key[j]
 	}
 	return string(key)
 }
