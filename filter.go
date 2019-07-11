@@ -316,7 +316,7 @@ func (filter *Filter) SetWhiteFlag(isUsing bool) {
 
 // 字符串翻转
 func (filter *Filter) overturnString(text string) string {
-	key := []byte(text)
+	key := []rune(text)
 	l := len(key)
 	for j := 0; j < l/2; j++ {
 		// 倒序存前缀
