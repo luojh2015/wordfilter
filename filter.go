@@ -58,18 +58,18 @@ func (filter *Filter) AddWord(typ WordType, words ...string) {
 // Replace 敏感词替换
 func (filter *Filter) Replace(text string, repl rune) string {
 	var (
-		parent  = filter.black.Root
+		root    = filter.black.Root
 		current *Node
 		runes   = []rune(text)
 		left    = 0
 		found   bool
 	)
 
-	for position := 0; position < len(runes); position++ {
+	for position, parent := 0, root; position < len(runes); position++ {
 		current, found = parent.Children[runes[position]]
 
 		if !found {
-			parent = filter.black.Root
+			parent = root
 			position = left
 			left++
 			continue
@@ -94,7 +94,7 @@ func (filter *Filter) Replace(text string, repl rune) string {
 // Filter 过滤敏感词
 func (filter *Filter) Filter(text string) string {
 	var (
-		parent      = filter.black.Root
+		root        = filter.black.Root
 		current     *Node
 		left        = 0
 		found       bool
@@ -103,12 +103,12 @@ func (filter *Filter) Filter(text string) string {
 		resultRunes = make([]rune, 0, length)
 	)
 
-	for position := 0; position < length; position++ {
+	for position, parent := 0, root; position < length; position++ {
 		current, found = parent.Children[runes[position]]
 
 		if !found {
 			resultRunes = append(resultRunes, runes[left])
-			parent = filter.black.Root
+			parent = root
 			position = left
 			left++
 			continue
@@ -116,7 +116,9 @@ func (filter *Filter) Filter(text string) string {
 
 		if current.IsEnd() {
 			if filter.IsInWhiteList(runes, left, position) {
+				resultRunes = append(resultRunes, runes[left:position+1]...)
 				parent = current
+				left = position + 1
 				continue
 			}
 
@@ -136,18 +138,18 @@ func (filter *Filter) Validate(text string) (bool, string) {
 		Empty = ""
 	)
 	var (
-		parent  = filter.black.Root
+		root    = filter.black.Root
 		current *Node
 		runes   = []rune(filter.RemoveNoise(text))
 		left    = 0
 		found   bool
 	)
 
-	for position := 0; position < len(runes); position++ {
+	for position, parent := 0, root; position < len(runes); position++ {
 		current, found = parent.Children[runes[position]]
 
 		if !found {
-			parent = filter.black.Root
+			parent = root
 			position = left
 			left++
 			continue
@@ -178,7 +180,7 @@ func (filter *Filter) FindIn(text string) (bool, string) {
 func (filter *Filter) FindAll(text string) []string {
 	var matches []string
 	var (
-		parent  = filter.black.Root
+		root    = filter.black.Root
 		current *Node
 		runes   = []rune(text)
 		length  = len(runes)
@@ -186,11 +188,11 @@ func (filter *Filter) FindAll(text string) []string {
 		found   bool
 	)
 
-	for position := 0; position < length; position++ {
+	for position, parent := 0, root; position < length; position++ {
 		current, found = parent.Children[runes[position]]
 
 		if !found {
-			parent = filter.black.Root
+			parent = root
 			position = left
 			left++
 			continue
@@ -202,7 +204,7 @@ func (filter *Filter) FindAll(text string) []string {
 			}
 
 			if position == length-1 {
-				parent = filter.black.Root
+				parent = root
 				position = left
 				left++
 				continue
@@ -255,21 +257,21 @@ func (filter *Filter) FindPrefix(runes []rune, offset int) (bool, string) {
 		Empty = ""
 	)
 	var (
-		parent  = filter.whitePrefix.Root
+		root    = filter.whitePrefix.Root
 		current *Node
 		found   bool
 		l       = len(runes)
 		cnt     = 0
 	)
 
-	for position := 0; position < l; position++ {
+	for position, parent := 0, root; position < l; position++ {
 		current, found = parent.Children[runes[l-1-position]]
 		if !found {
 			// 从后往前找，超过偏移量都没有找到前缀
 			if position > offset {
 				return false, Empty
 			}
-			parent = filter.black.Root
+			parent = root
 			position = cnt
 			cnt++
 			continue
@@ -291,20 +293,20 @@ func (filter *Filter) FindSuffix(runes []rune, offset int) (bool, string) {
 		Empty = ""
 	)
 	var (
-		parent  = filter.whiteSuffix.Root
+		root    = filter.whiteSuffix.Root
 		current *Node
 		found   bool
 		cnt     = 0
 	)
 
-	for position := 0; position < len(runes); position++ {
+	for position, parent := 0, root; position < len(runes); position++ {
 		current, found = parent.Children[runes[position]]
 		if !found {
 			// 从前往后找，超过偏移量都没有找到后缀
 			if position > offset {
 				return false, Empty
 			}
-			parent = filter.black.Root
+			parent = root
 			position = cnt
 			cnt++
 			continue
