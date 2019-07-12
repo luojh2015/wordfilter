@@ -77,13 +77,12 @@ func (filter *Filter) Replace(text string, repl rune) string {
 
 		if current.IsEnd() && left <= position {
 			if filter.IsInWhiteList(runes, left, position) {
-				left = position + 1
+				parent = current
 				continue
 			}
 			for i := left; i <= position; i++ {
 				runes[i] = repl
 			}
-			left = position + 1
 		}
 
 		parent = current
@@ -117,6 +116,7 @@ func (filter *Filter) Filter(text string) string {
 
 		if current.IsEnd() {
 			if filter.IsInWhiteList(runes, left, position) {
+				parent = current
 				continue
 			}
 
@@ -155,6 +155,7 @@ func (filter *Filter) Validate(text string) (bool, string) {
 
 		if current.IsEnd() && left <= position {
 			if filter.IsInWhiteList(runes, left, position) {
+				parent = current
 				continue
 			}
 
@@ -268,7 +269,10 @@ func (filter *Filter) FindPrefix(runes []rune, offset int) (bool, string) {
 			if position > offset {
 				return false, Empty
 			}
+			parent = filter.black.Root
+			position = cnt
 			cnt++
+			continue
 		}
 
 		if current.IsEnd() {
@@ -300,7 +304,10 @@ func (filter *Filter) FindSuffix(runes []rune, offset int) (bool, string) {
 			if position > offset {
 				return false, Empty
 			}
+			parent = filter.black.Root
+			position = cnt
 			cnt++
+			continue
 		}
 
 		if current.IsEnd() {
