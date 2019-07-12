@@ -2,6 +2,9 @@ package wordfilter
 
 import (
 	"regexp"
+	"strings"
+
+	"github.com/huichen/sego"
 )
 
 // WordType ...
@@ -18,6 +21,7 @@ const (
 
 // Filter 敏感词过滤器
 type Filter struct {
+	segmenter   *sego.Segmenter
 	black       *Trie //敏感词
 	whitePrefix *Trie //白名单(前缀)
 	whiteSuffix *Trie //白名单(后缀)
@@ -28,6 +32,7 @@ type Filter struct {
 // New 返回一个敏感词过滤器
 func New() *Filter {
 	return &Filter{
+		segmenter:   &sego.Segmenter{},
 		black:       NewTrie(),
 		whitePrefix: NewTrie(),
 		whiteSuffix: NewTrie(),
@@ -39,6 +44,11 @@ func New() *Filter {
 // UpdateNoisePattern 更新去噪模式
 func (filter *Filter) UpdateNoisePattern(pattern string) {
 	filter.noise = regexp.MustCompile(pattern)
+}
+
+// LoadSegoDic 加载分词词库
+func (filter *Filter) LoadSegoDic(path string) {
+	filter.segmenter.LoadDictionary(path)
 }
 
 // AddWord 添加敏感词
@@ -58,34 +68,20 @@ func (filter *Filter) AddWord(typ WordType, words ...string) {
 // Replace 敏感词替换
 func (filter *Filter) Replace(text string, repl rune) string {
 	var (
-		root    = filter.black.Root
-		current *Node
-		runes   = []rune(text)
-		left    = 0
-		found   bool
+		runes    = []rune(text)
+		position = 0
 	)
 
-	for position, parent := 0, root; position < len(runes); position++ {
-		current, found = parent.Children[runes[position]]
-
-		if !found {
-			parent = root
-			position = left
-			left++
-			continue
-		}
-
-		if current.IsEnd() && left <= position {
-			if filter.IsInWhiteList(runes, left, position) {
-				parent = current
-				continue
-			}
-			for i := left; i <= position; i++ {
-				runes[i] = repl
+	segs := filter.segmenter.Segment([]byte(text))
+	for i := range segs {
+		word := []rune(segs[i].Token().Text())
+		position += len(word)
+		// 当前分词在黑名单中 且 不含白名单前缀或后缀
+		if filter.IsIn(WordTypeBlack, string(word)) && !filter.IsInWhiteList(text, position-len(word), position-1) {
+			for j := position - len(word); j < position; j++ {
+				runes[j] = repl
 			}
 		}
-
-		parent = current
 	}
 
 	return string(runes)
@@ -94,40 +90,22 @@ func (filter *Filter) Replace(text string, repl rune) string {
 // Filter 过滤敏感词
 func (filter *Filter) Filter(text string) string {
 	var (
-		root        = filter.black.Root
-		current     *Node
-		left        = 0
-		found       bool
 		runes       = []rune(text)
-		length      = len(runes)
-		resultRunes = make([]rune, 0, length)
+		resultRunes = make([]rune, 0, len(runes))
+		position    = 0
 	)
 
-	for position, parent := 0, root; position < length; position++ {
-		current, found = parent.Children[runes[position]]
-
-		if !found {
-			resultRunes = append(resultRunes, runes[left])
-			parent = root
-			position = left
-			left++
+	segs := filter.segmenter.Segment([]byte(text))
+	for i := range segs {
+		word := []rune(segs[i].Token().Text())
+		position += len(word)
+		// 当前分词在黑名单中 且 不含白名单前缀或后缀
+		if filter.IsIn(WordTypeBlack, string(word)) && !filter.IsInWhiteList(text, position-len(word), position-1) {
 			continue
 		}
-
-		if current.IsEnd() {
-			if filter.IsInWhiteList(runes, left, position) {
-				resultRunes = append(resultRunes, runes[left:position+1]...)
-				parent = current
-				left = position + 1
-				continue
-			}
-
-			left = position + 1
-		}
-		parent = current
+		resultRunes = append(resultRunes, word...)
 	}
 
-	resultRunes = append(resultRunes, runes[left:]...)
 	return string(resultRunes)
 }
 
@@ -138,33 +116,17 @@ func (filter *Filter) Validate(text string) (bool, string) {
 		Empty = ""
 	)
 	var (
-		root    = filter.black.Root
-		current *Node
-		runes   = []rune(filter.RemoveNoise(text))
-		left    = 0
-		found   bool
+		position = 0
 	)
 
-	for position, parent := 0, root; position < len(runes); position++ {
-		current, found = parent.Children[runes[position]]
-
-		if !found {
-			parent = root
-			position = left
-			left++
-			continue
+	segs := filter.segmenter.Segment([]byte(text))
+	for i := range segs {
+		word := []rune(segs[i].Token().Text())
+		position += len(word)
+		// 当前分词在黑名单中 且 不含白名单前缀或后缀
+		if filter.IsIn(WordTypeBlack, string(word)) && !filter.IsInWhiteList(text, position-len(word), position-1) {
+			return false, string(word)
 		}
-
-		if current.IsEnd() && left <= position {
-			if filter.IsInWhiteList(runes, left, position) {
-				parent = current
-				continue
-			}
-
-			return false, string(runes[left : position+1])
-		}
-
-		parent = current
 	}
 
 	return true, Empty
@@ -178,40 +140,19 @@ func (filter *Filter) FindIn(text string) (bool, string) {
 
 // FindAll 找有所有包含在词库中的词
 func (filter *Filter) FindAll(text string) []string {
-	var matches []string
 	var (
-		root    = filter.black.Root
-		current *Node
-		runes   = []rune(text)
-		length  = len(runes)
-		left    = 0
-		found   bool
+		matches  []string
+		position = 0
 	)
 
-	for position, parent := 0, root; position < length; position++ {
-		current, found = parent.Children[runes[position]]
-
-		if !found {
-			parent = root
-			position = left
-			left++
-			continue
+	segs := filter.segmenter.Segment([]byte(text))
+	for i := range segs {
+		word := []rune(segs[i].Token().Text())
+		position += len(word)
+		// 当前分词在黑名单中 且 不含白名单前缀或后缀
+		if filter.IsIn(WordTypeBlack, string(word)) && !filter.IsInWhiteList(text, position-len(word), position-1) {
+			matches = append(matches, string(word))
 		}
-
-		if current.IsEnd() && left <= position {
-			if !filter.IsInWhiteList(runes, left, position) {
-				matches = append(matches, string(runes[left:position+1]))
-			}
-
-			if position == length-1 {
-				parent = root
-				position = left
-				left++
-				continue
-			}
-		}
-
-		parent = current
 	}
 
 	if count := len(matches); count > 0 {
@@ -233,7 +174,8 @@ func (filter *Filter) FindAll(text string) []string {
 }
 
 // IsInWhiteList 查白名单
-func (filter *Filter) IsInWhiteList(runes []rune, left, position int) bool {
+func (filter *Filter) IsInWhiteList(src string, left, position int) bool {
+	runes := []rune(strings.ToLower(src))
 	if filter.checkWhite {
 		if left > 0 {
 			// 从后往前，查看是否包含白名单前缀
@@ -330,6 +272,43 @@ func (filter *Filter) RemoveNoise(text string) string {
 // SetWhiteFlag 设置白名单启用状态
 func (filter *Filter) SetWhiteFlag(isUsing bool) {
 	filter.checkWhite = isUsing
+}
+
+// IsIn ...
+func (filter *Filter) IsIn(typ WordType, word string) bool {
+	var (
+		root    *Node
+		current *Node
+		found   bool
+		runes   []rune
+	)
+	switch typ {
+	case WordTypeBlack:
+		root = filter.black.Root
+		runes = []rune(strings.ToLower(word))
+	case WordTypeWhitePre:
+		root = filter.whitePrefix.Root
+		runes = []rune(strings.ToLower(filter.overturnString(word)))
+	case WordTypeWhiteSuf:
+		root = filter.whiteSuffix.Root
+		runes = []rune(strings.ToLower(word))
+	default:
+		return false
+	}
+	for position, parent := 0, root; position < len(runes); position++ {
+		current, found = parent.Children[runes[position]]
+		if !found {
+			break
+		}
+
+		// 搜索路径结束在字符串末尾时，该词语在此列表中
+		if current.IsEnd() && position == len(runes)-1 {
+			return true
+		}
+
+		parent = current
+	}
+	return false
 }
 
 // 字符串翻转
