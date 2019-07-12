@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/huichen/sego"
+	"github.com/luojh2015/sego"
 )
 
 // WordType ...
@@ -17,6 +17,8 @@ const (
 	WordTypeWhitePre
 	// WordTypeWhiteSuf 白名单后缀
 	WordTypeWhiteSuf
+	// WordTypeSego sego分词词语
+	WordTypeSego
 )
 
 // Filter 敏感词过滤器
@@ -52,16 +54,15 @@ func (filter *Filter) LoadSegoDic(path string) {
 }
 
 // AddWord 添加敏感词
-func (filter *Filter) AddWord(typ WordType, words ...string) {
+func (filter *Filter) AddWord(typ WordType, word string, frequency int) {
+	filter.segmenter.AddWord(word, "", frequency)
 	switch typ {
 	case WordTypeBlack:
-		filter.black.Add(words...)
+		filter.black.Add(word)
 	case WordTypeWhitePre:
-		for i := range words {
-			filter.whitePrefix.Add(filter.overturnString(words[i]))
-		}
+		filter.whitePrefix.Add(filter.overturnString(word))
 	case WordTypeWhiteSuf:
-		filter.whiteSuffix.Add(words...)
+		filter.whiteSuffix.Add(word)
 	}
 }
 
