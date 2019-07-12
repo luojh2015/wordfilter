@@ -233,14 +233,14 @@ func (filter *Filter) FindAll(text string) []string {
 func (filter *Filter) IsInWhiteList(runes []rune, left, position int) bool {
 	if filter.checkWhite {
 		if left > 0 {
-			// 从第一个字往前，查看是否包含白名单前缀
-			if ok, _ := filter.FindPrefix(runes[0 : left+1]); ok {
+			// 从后往前，查看是否包含白名单前缀
+			if ok, _ := filter.FindPrefix(runes[0:position+1], position+1-left); ok {
 				return true
 			}
 		}
 		if position < len(runes)-1 {
-			// 从最后一个字往后，查看是否包含白名单后缀
-			if ok, _ := filter.FindSuffix(runes[position:]); ok {
+			// 从前往后，查看是否包含白名单后缀
+			if ok, _ := filter.FindSuffix(runes[left:], position+1-left); ok {
 				return true
 			}
 		}
@@ -249,7 +249,7 @@ func (filter *Filter) IsInWhiteList(runes []rune, left, position int) bool {
 }
 
 // FindPrefix 查找前缀
-func (filter *Filter) FindPrefix(runes []rune) (bool, string) {
+func (filter *Filter) FindPrefix(runes []rune, offset int) (bool, string) {
 	const (
 		Empty = ""
 	)
@@ -257,17 +257,22 @@ func (filter *Filter) FindPrefix(runes []rune) (bool, string) {
 		parent  = filter.whitePrefix.Root
 		current *Node
 		found   bool
+		l       = len(runes)
+		cnt     = 0
 	)
 
-	for position := len(runes) - 1; position >= 0; position-- {
-		current, found = parent.Children[runes[position]]
-
+	for position := 0; position < l; position++ {
+		current, found = parent.Children[runes[l-1-position]]
 		if !found {
-			return false, Empty
+			// 从后往前找，超过偏移量都没有找到前缀
+			if position > offset {
+				return false, Empty
+			}
+			cnt++
 		}
 
 		if current.IsEnd() {
-			return true, string(runes[position:len(runes)])
+			return true, string(runes[l-1-position : l-cnt])
 		}
 
 		parent = current
@@ -277,7 +282,7 @@ func (filter *Filter) FindPrefix(runes []rune) (bool, string) {
 }
 
 // FindSuffix 查找后缀
-func (filter *Filter) FindSuffix(runes []rune) (bool, string) {
+func (filter *Filter) FindSuffix(runes []rune, offset int) (bool, string) {
 	const (
 		Empty = ""
 	)
@@ -285,17 +290,21 @@ func (filter *Filter) FindSuffix(runes []rune) (bool, string) {
 		parent  = filter.whiteSuffix.Root
 		current *Node
 		found   bool
+		cnt     = 0
 	)
 
 	for position := 0; position < len(runes); position++ {
 		current, found = parent.Children[runes[position]]
-
 		if !found {
-			return false, Empty
+			// 从前往后找，超过偏移量都没有找到后缀
+			if position > offset {
+				return false, Empty
+			}
+			cnt++
 		}
 
 		if current.IsEnd() {
-			return true, string(runes[0 : position+1])
+			return true, string(runes[cnt : position+1])
 		}
 
 		parent = current
