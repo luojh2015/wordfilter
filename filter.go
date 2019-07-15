@@ -66,6 +66,18 @@ func (filter *Filter) AddWord(typ WordType, word string, frequency int) {
 	}
 }
 
+// DeleteWord 删除敏感词
+func (filter *Filter) DeleteWord(typ WordType, word string) {
+	switch typ {
+	case WordTypeBlack:
+		filter.black.Delete(word)
+	case WordTypeWhitePre:
+		filter.whitePrefix.Delete(filter.overturnString(word))
+	case WordTypeWhiteSuf:
+		filter.whiteSuffix.Delete(word)
+	}
+}
+
 // Replace 敏感词替换
 func (filter *Filter) Replace(text string, repl rune) string {
 	var (

@@ -48,6 +48,44 @@ func (tree *Trie) add(word string) {
 	}
 }
 
+// Delete 删除一个词
+func (tree *Trie) Delete(word string) {
+	type D struct {
+		c *Node
+		p *Node
+	}
+	var current = tree.Root
+	var runes = []rune(word)
+	var path []D
+	for position := 0; position < len(runes); position++ {
+		r := runes[position]
+		if next, ok := current.Children[r]; ok {
+			path = append(path, D{c: next, p: current})
+			current = next
+		} else {
+			// 没有匹配的path
+			return
+		}
+	}
+	// 从后往前删除节点
+	for position := len(path) - 1; position >= 0; position-- {
+		if position != len(path)-1 {
+			if path[position].c.IsEnd() {
+				// path中存在短词语
+				return
+			}
+		} else if path[position].c.IsEnd() {
+			// path最后一个节点删除结束标志
+			path[position].c.isEnd = false
+		}
+		if path[position].c.IsLeaf() {
+			// 从后往前，删掉叶子节点
+			delete(path[position].p.Children, path[position].c.Character)
+			continue
+		}
+	}
+}
+
 // NewNode 新建子节点
 func NewNode(character rune) *Node {
 	return &Node{
