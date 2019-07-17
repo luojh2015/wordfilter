@@ -53,6 +53,11 @@ func (filter *Filter) LoadSegoDic(path string) {
 	filter.segmenter.LoadDictionary(path)
 }
 
+// CopySego 拷贝分词词库
+func (filter *Filter) CopySego(src *Filter) {
+	filter.segmenter = src.segmenter
+}
+
 // AddWord 添加敏感词
 func (filter *Filter) AddWord(typ WordType, word string, frequency int) {
 	filter.segmenter.AddWord(word, "", frequency)
